@@ -1,0 +1,59 @@
+name: Create New Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      new_branch_name:
+        description: 'Name of the new branch'
+        required: true
+      source_branch:
+        description: 'Source branch to create from'
+        required: true
+        default: 'main'
+
+jobs:
+  create_branch:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Create new branch
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        
+        # Fetch all branches
+        git fetch --all
+        
+        # Check if the source branch exists
+        if ! git ls-remote --exit-code --heads origin ${{ github.event.inputs.source_branch }} > /dev/null 2>&1; then
+          echo "Error: The branch '${{ github.event.inputs.source_branch }}' does not exist in the remote repository."
+          exit 1
+        fi
+        
+        # Create and checkout the new branch
+        git checkout -b ${{ github.event.inputs.new_branch_name }} origin/${{ github.event.inputs.source_branch }}
+        
+        if [ $? -eq 0 ]; then
+          echo "Successfully created new branch '${{ github.event.inputs.new_branch_name }}' from '${{ github.event.inputs.source_branch }}'."
+          
+          # Push the new branch to the remote repository
+          git push -u origin ${{ github.event.inputs.new_branch_name }}
+          
+          if [ $? -eq 0 ]; then
+            echo "Successfully pushed new branch '${{ github.event.inputs.new_branch_name }}' to remote."
+          else
+            echo "Error: Failed to push the new branch to remote."
+            exit 1
+          fi
+        else
+          echo "Error: Failed to create the new branch."
+          exit 1
+        fi
+
+    - name: Set output
+      id: set-output
+      run: echo "new_branch=${{ github.event.inputs.new_branch_name }}" >> $GITHUB_OUTPUT
